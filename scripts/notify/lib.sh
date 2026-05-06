@@ -1,3 +1,4 @@
+# shellcheck shell=bash
 # iTerm2 tab color helpers, sourced by the other scripts in this dir.
 # OSC 6 ; 1 ; bg ; <channel> ; brightness ; <0-255> BEL  — sets one RGB channel.
 # OSC 6 ; 1 ; bg ; * ; default BEL                       — clears tab color.

@@ -11,6 +11,7 @@
 INPUT=$(cat)
 LOG="/tmp/claude-notify-input-needed.log"
 
+# shellcheck source=scripts/notify/lib.sh
 source ~/.claude/notify/lib.sh
 
 json_string() { echo "$INPUT" | grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/'; }
