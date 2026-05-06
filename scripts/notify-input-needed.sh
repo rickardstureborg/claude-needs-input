@@ -16,6 +16,7 @@ trace() { echo "$(date '+%H:%M:%S') | $*" >> "$LOG"; }
 trace "fired | input_len=${#INPUT}"
 
 # Reuse the color helpers + tty resolver that drive the AskUserQuestion pulse.
+# shellcheck source=scripts/notify/lib.sh
 source ~/.claude/notify/lib.sh
 
 json_string() { echo "$INPUT" | grep -o "\"$1\"[[:space:]]*:[[:space:]]*\"[^\"]*\"" | head -1 | sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/'; }

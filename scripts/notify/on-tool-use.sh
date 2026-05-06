@@ -4,6 +4,7 @@
 # no explicit close-event when the user accepts: the next tool starting is
 # itself the signal that the user un-blocked us.
 
+# shellcheck source=lib.sh
 source ~/.claude/notify/lib.sh
 
 INPUT=$(cat)
