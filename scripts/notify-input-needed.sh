@@ -11,6 +11,11 @@
 INPUT=$(cat)
 LOG="/tmp/claude-notify-input-needed.log"
 
+# Trace every fire and where it exits, to debug real-flow branching.
+trace() { echo "$(date '+%H:%M:%S') | $*" >> "$LOG"; }
+trace "fired | input_len=${#INPUT}"
+
+# Reuse the color helpers + tty resolver that drive the AskUserQuestion pulse.
 # shellcheck source=scripts/notify/lib.sh
 source ~/.claude/notify/lib.sh
 
@@ -29,18 +34,24 @@ apply_color() {
         nohup bash ~/.claude/notify/pulse.sh "$SESSION_ID" "$TTY" >/dev/null 2>&1 &
         disown
     else
-        set_tab_rgb "$TTY" 40 200 80
+        set_tab_rgb "$TTY" 40 200 80   # solid green
     fi
 }
 
+# No transcript → can't classify, but still settle the tab to "done" green.
+trace "transcript=$TRANSCRIPT exists=$([ -f "$TRANSCRIPT" ] && echo y || echo n)"
+
 if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
+    trace "exit: no transcript -> CLOSING"
     apply_color CLOSING
     exit 0
 fi
 
-# Returns "SKIP" (AskUserQuestion used in this turn — Notification hook owns the tab)
-# or "TEXT\n<last assistant text>".
-RESULT=$(python3 - "$TRANSCRIPT" 2>>"$LOG" <<'PY'
+# Walk the transcript. The Stop hook can fire before Claude Code has flushed
+# the final assistant entry to disk, leaving asst[] empty (parse_header empty).
+# Retry with backoff to give the writer time to catch up.
+walk_transcript() {
+    python3 - "$TRANSCRIPT" 2>>"$LOG" <<'PY'
 import json, sys
 entries = []
 with open(sys.argv[1]) as f:
@@ -83,26 +94,45 @@ for entry in asst:
 print("TEXT")
 print("\n".join(texts))
 PY
-)
+}
 
-PARSE_HEADER=$(echo "$RESULT" | head -1)
+# Retry the walk a few times to defeat the transcript-flush race. Empty parse_header
+# means asst was empty at read time — usually because the final assistant entry
+# wasn't on disk yet. Most calls succeed on attempt 1 (no added latency).
+RESULT=""
+PARSE_HEADER=""
+for attempt in 1 2 3; do
+    RESULT=$(walk_transcript)
+    PARSE_HEADER=$(echo "$RESULT" | head -1)
+    if [ -n "$PARSE_HEADER" ]; then
+        [ "$attempt" -gt 1 ] && trace "walk succeeded on attempt $attempt"
+        break
+    fi
+    trace "attempt=$attempt empty parse_header, sleeping 0.3s"
+    sleep 0.3
+done
+
+trace "parse_header=$PARSE_HEADER result_lines=$(echo "$RESULT" | wc -l | tr -d ' ')"
 
 if [ "$PARSE_HEADER" != "TEXT" ]; then
+    trace "exit: parse_header=$PARSE_HEADER (SKIP / parse failed after retries) -> CLOSING"
     apply_color CLOSING
     exit 0
 fi
 
 TEXT=$(echo "$RESULT" | tail -n +2)
+trace "text_len=${#TEXT} text_tail_80=${TEXT: -80}"
 if [ -z "$TEXT" ]; then
+    trace "exit: empty text -> CLOSING"
     apply_color CLOSING
     exit 0
 fi
 
 # Fast-path: no '?' anywhere → trivially CLOSING. Saves the ~4s LLM call on the common case.
 case "$TEXT" in
-    *"?"*) ;;
+    *"?"*) trace "has '?' -> calling LLM" ;;
     *)
-        echo "$(date '+%Y-%m-%d %H:%M:%S') | session=$SESSION_ID | verdict=CLOSING (fast-path no ?)" >> "$LOG"
+        trace "exit: fast-path no ? -> CLOSING"
         apply_color CLOSING
         exit 0
         ;;

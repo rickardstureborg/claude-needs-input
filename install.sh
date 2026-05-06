@@ -84,6 +84,7 @@ fetch_to "scripts/notify/pulse.sh"           "$NOTIFY_DIR/pulse.sh"
 fetch_to "scripts/notify/on-notification.sh" "$NOTIFY_DIR/on-notification.sh"
 fetch_to "scripts/notify/on-prompt.sh"       "$NOTIFY_DIR/on-prompt.sh"
 fetch_to "scripts/notify/on-stop.sh"         "$NOTIFY_DIR/on-stop.sh"
+fetch_to "scripts/notify/on-tool-use.sh"     "$NOTIFY_DIR/on-tool-use.sh"
 fetch_to "scripts/notify-input-needed.sh"    "$CLAUDE_DIR/notify-input-needed.sh"
 
 chmod +x "$NOTIFY_DIR"/*.sh "$CLAUDE_DIR/notify-input-needed.sh"
@@ -111,6 +112,7 @@ hooks = data.setdefault("hooks", {})
 REGISTRATIONS = [
     ("Notification",     "bash ~/.claude/notify/on-notification.sh"),
     ("UserPromptSubmit", "bash ~/.claude/notify/on-prompt.sh"),
+    ("PreToolUse",       "bash ~/.claude/notify/on-tool-use.sh"),
     ("Stop",             "bash ~/.claude/notify-input-needed.sh"),
 ]
 
