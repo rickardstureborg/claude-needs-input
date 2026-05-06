@@ -62,8 +62,6 @@ Stop event
 
 The classifier call uses `claude -p --model haiku --no-session-persistence` and inherits a `CLAUDE_CLASSIFIER_RUNNING=1` env var to short-circuit its own Stop hook (no recursion, no API key).
 
-For the full state machine see [`docs/architecture.md`](docs/architecture.md).
-
 ## Customization
 
 All knobs live in the installed scripts under `~/.claude/notify/` — edit in place.

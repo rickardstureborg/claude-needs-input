@@ -71,7 +71,14 @@ for e in asst:
             print("SKIP")
             sys.exit(0)
 
-texts = [c.get("text","") for c in asst[0].get("message",{}).get("content",[]) if c.get("type")=="text"]
+# asst is reverse-chronological. The LAST assistant entry can be pure tool_use (no
+# text), so walk until we find the most recent entry that actually contains text.
+texts = []
+for entry in asst:
+    found = [c.get("text","") for c in entry.get("message",{}).get("content",[]) if c.get("type")=="text"]
+    if found:
+        texts = found
+        break
 print("TEXT")
 print("\n".join(texts))
 PY
