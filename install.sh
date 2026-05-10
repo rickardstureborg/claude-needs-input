@@ -113,6 +113,7 @@ REGISTRATIONS = [
     ("Notification",     "bash ~/.claude/notify/on-notification.sh"),
     ("UserPromptSubmit", "bash ~/.claude/notify/on-prompt.sh"),
     ("PreToolUse",       "bash ~/.claude/notify/on-tool-use.sh"),
+    ("PostToolUse",      "bash ~/.claude/notify/on-tool-use.sh"),
     ("Stop",             "bash ~/.claude/notify-input-needed.sh"),
 ]
 
