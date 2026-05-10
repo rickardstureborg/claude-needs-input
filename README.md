@@ -36,7 +36,7 @@ No `ANTHROPIC_API_KEY` needed — the classifier piggybacks on your existing Cla
 
 ## How it works
 
-Three Claude Code hooks, all installed under `~/.claude/`:
+A few Claude Code hooks, all installed under `~/.claude/`:
 
 ```
 ~/.claude/
@@ -46,7 +46,9 @@ Three Claude Code hooks, all installed under `~/.claude/`:
     ├── pulse.sh                   # background pulser daemon
     ├── on-notification.sh         # Notification hook: dispatch by subtype
     ├── on-prompt.sh               # UserPromptSubmit hook: clear color
-    └── on-stop.sh                 # (optional) unconditional green on Stop
+    ├── on-tool-use.sh             # Pre/PostToolUse hook: stop pulse around tool calls
+    ├── on-stop.sh                 # (optional) unconditional green on Stop
+    └── dismiss.sh                 # manual kill switch (bind to an iTerm2 key)
 ```
 
 End-of-turn classification flow:
@@ -61,6 +63,35 @@ Stop event
 ```
 
 The classifier call uses `claude -p --model haiku --no-session-persistence` and inherits a `CLAUDE_CLASSIFIER_RUNNING=1` env var to short-circuit its own Stop hook (no recursion, no API key).
+
+## Stop the pulse yourself
+
+Seen the orange, but not ready to answer yet? `dismiss.sh` stops the pulse and
+resets the tab color to the default. Because the pulser is then gone, nothing
+overwrites the tab color anymore — so a color you set yourself afterwards (e.g.
+iTerm2's right-click **tab color** menu) stays put.
+
+Bind it to an iTerm2 key:
+
+1. **iTerm2 → Settings → Keys → Key Bindings → `+`**
+2. Press the shortcut you want — e.g. **⌥⌘⌫** (Option-Command-Delete).
+3. Set **Action** to `Run Coprocess`.
+4. Set the command to exactly:
+
+   ```
+   bash ~/.claude/notify/dismiss.sh
+   ```
+
+That key resets every tab the tool has colored — clearing any tint and stopping
+any pulse, whatever the tab's current color — even mid-`AskUserQuestion` or
+during a permission prompt.
+
+You can also run it from Claude Code's `!` prefix, where it targets just the
+current tab:
+
+```
+! ~/.claude/notify/dismiss.sh
+```
 
 ## Customization
 

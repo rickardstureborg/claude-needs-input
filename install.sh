@@ -85,6 +85,7 @@ fetch_to "scripts/notify/on-notification.sh" "$NOTIFY_DIR/on-notification.sh"
 fetch_to "scripts/notify/on-prompt.sh"       "$NOTIFY_DIR/on-prompt.sh"
 fetch_to "scripts/notify/on-stop.sh"         "$NOTIFY_DIR/on-stop.sh"
 fetch_to "scripts/notify/on-tool-use.sh"     "$NOTIFY_DIR/on-tool-use.sh"
+fetch_to "scripts/notify/dismiss.sh"         "$NOTIFY_DIR/dismiss.sh"
 fetch_to "scripts/notify-input-needed.sh"    "$CLAUDE_DIR/notify-input-needed.sh"
 
 chmod +x "$NOTIFY_DIR"/*.sh "$CLAUDE_DIR/notify-input-needed.sh"
