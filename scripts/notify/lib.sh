@@ -5,14 +5,17 @@
 
 set_tab_rgb() {
   local tty=$1 r=$2 g=$3 b=$4
-  printf '\033]6;1;bg;red;brightness;%d\007'   "$r" > "$tty" 2>/dev/null
-  printf '\033]6;1;bg;green;brightness;%d\007' "$g" > "$tty" 2>/dev/null
-  printf '\033]6;1;bg;blue;brightness;%d\007'  "$b" > "$tty" 2>/dev/null
+  # 2>/dev/null must precede >"$tty": redirections apply left-to-right, so if the
+  # tty open fails the error is already routed to /dev/null. With the other order
+  # the open failure leaks to real stderr — which makes iTerm2 flag a coprocess.
+  printf '\033]6;1;bg;red;brightness;%d\007'   "$r" 2>/dev/null > "$tty"
+  printf '\033]6;1;bg;green;brightness;%d\007' "$g" 2>/dev/null > "$tty"
+  printf '\033]6;1;bg;blue;brightness;%d\007'  "$b" 2>/dev/null > "$tty"
 }
 
 clear_tab_color() {
   local tty=$1
-  printf '\033]6;1;bg;*;default\007' > "$tty" 2>/dev/null
+  printf '\033]6;1;bg;*;default\007' 2>/dev/null > "$tty"
 }
 
 # Hooks are children of Claude Code, which has the iTerm2 tab as its tty.
