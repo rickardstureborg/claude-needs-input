@@ -4,7 +4,7 @@ Make your iTerm2 tab **pulse orange** when Claude Code is waiting on you, and **
 
 ![demo](docs/demo.gif)
 
-> **Status:** macOS + iTerm2 + Claude Code only. Works with the user's existing OAuth — no API key required.
+> **Status:** macOS + iTerm2 + Claude Code only. Works with your existing OAuth — no API key required.
 
 ## Install
 
@@ -47,7 +47,6 @@ A few Claude Code hooks, all installed under `~/.claude/`:
     ├── on-notification.sh         # Notification hook: dispatch by subtype
     ├── on-prompt.sh               # UserPromptSubmit hook: clear color
     ├── on-tool-use.sh             # Pre/PostToolUse hook: stop pulse around tool calls
-    ├── on-stop.sh                 # (optional) unconditional green on Stop
     └── dismiss.sh                 # manual kill switch (bind to an iTerm2 key)
 ```
 
