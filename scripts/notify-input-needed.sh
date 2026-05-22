@@ -128,15 +128,51 @@ if [ -z "$TEXT" ]; then
     exit 0
 fi
 
-# Fast-path: no '?' anywhere → trivially CLOSING. Saves the ~4s LLM call on the common case.
-case "$TEXT" in
-    *"?"*) trace "has '?' -> calling LLM" ;;
-    *)
-        trace "exit: fast-path no ? -> CLOSING"
-        apply_color CLOSING
-        exit 0
-        ;;
-esac
+# Fast-path: skip the ~4s Haiku call unless the final message looks like it
+# might be handing a decision back to the user. A literal "?" or any of these
+# input-soliciting phrases (case-insensitive, anywhere in the message) sends it
+# to the classifier; anything else is trivially CLOSING.
+TRIGGERS=$(cat <<'EOF'
+?
+up to you
+your call
+you decide
+your decision
+your preference
+your input
+your thoughts
+your approval
+let me know
+tell me
+need your
+need you to
+i'll wait
+waiting for you
+want me to
+should i
+shall i
+confirm
+go ahead
+would you like
+how would you
+what do you think
+option
+options
+decide
+decision
+choose
+choice
+prefer
+proceed
+EOF
+)
+if grep -iqF -- "$TRIGGERS" <<< "$TEXT"; then
+    trace "trigger matched -> calling LLM"
+else
+    trace "exit: no trigger -> CLOSING"
+    apply_color CLOSING
+    exit 0
+fi
 
 PROMPT="You are classifying the final message of an AI coding assistant's turn into one of two categories:
 
