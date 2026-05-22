@@ -1,8 +1,11 @@
 #!/bin/bash
-# PreToolUse hook — kill any in-flight pulser before the tool runs.
-# Catches the case where a permission_prompt left a pulser running and there's
-# no explicit close-event when the user accepts: the next tool starting is
-# itself the signal that the user un-blocked us.
+# Pre/PostToolUse hook — kill any in-flight pulser around every tool call.
+#   PreToolUse  — a permission_prompt can leave a pulser running with no close
+#                 event; the next tool starting signals the user un-blocked us.
+#   PostToolUse — the instant a tool finishes (incl. AskUserQuestion) the user
+#                 has answered, so stop pulsing before Claude's next — possibly
+#                 long — thinking. Current Claude Code never fires the
+#                 Notification close-events, so this is the reliable cleanup.
 
 # shellcheck source=lib.sh
 source ~/.claude/notify/lib.sh

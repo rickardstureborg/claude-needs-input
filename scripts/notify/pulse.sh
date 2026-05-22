@@ -9,7 +9,9 @@ TTY=${2:-}
 source "$(dirname "$0")/lib.sh"
 
 PIDFILE=$(pulse_pidfile "$SESSION_ID")
-echo $$ > "$PIDFILE"
+# Line 1 = our PID (kill_pulser reads this). Line 2 = the tty, so dismiss.sh can
+# stop the pulser bound to a given tab without knowing the Claude Code session id.
+printf '%s\n%s\n' "$$" "$TTY" > "$PIDFILE"
 trap 'rm -f "$PIDFILE"; exit 0' TERM INT EXIT
 
 [ -z "$TTY" ] || [ ! -e "$TTY" ] && exit 0

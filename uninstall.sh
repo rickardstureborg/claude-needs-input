@@ -19,7 +19,7 @@ dim "------------------------------"
 # Kill any running pulsers.
 for pf in /tmp/claude-pulse-*.pid; do
     [ -f "$pf" ] || continue
-    pid=$(cat "$pf" 2>/dev/null)
+    pid=$(head -1 "$pf" 2>/dev/null)   # line 1 = PID (line 2 = tty)
     [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
     rm -f "$pf"
 done
@@ -67,7 +67,7 @@ green "✓ scripts removed from $CLAUDE_DIR"
 
 # Clean up temp files.
 rm -f /tmp/claude-notify-input-needed.log /tmp/claude-notification-payload.json
-rm -f /tmp/claude-stop-notified-*
+rm -f /tmp/claude-stop-notified-* /tmp/claude-iterm-* /tmp/claude-dismiss.log
 
 echo ""
 green "Uninstall complete."
