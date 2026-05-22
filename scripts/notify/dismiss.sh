@@ -1,33 +1,31 @@
 #!/bin/bash
-# User-invoked kill switch — stop the orange pulse and reset the tab color.
+# User-invoked kill switch — clear THIS tab's color and stop its pulse.
+# Only ever touches one tab; if it can't identify the tab it does nothing.
 #
-# Bind it to an iTerm2 key: Settings → Keys → Key Bindings → +, pick a shortcut,
-# set Action to "Run Coprocess", and set the command to exactly:
+# Bind it to an iTerm2 key (Settings → Keys → Key Bindings), Action
+# "Run Coprocess", with the command:
 #     bash ~/.claude/notify/dismiss.sh
 #
-# A coprocess has no tty of its own and can't tell which tab triggered it, so it
-# resets every tab the tool has tinted (pulsing OR solid) and stops every pulser.
-# Run instead from Claude Code's `!` prefix and it resolves the current tty and
-# resets just that tab. An explicit tty path may also be passed as $1.
-#
-# Once a pulser is dead nothing overwrites that tab color, so a color you set
-# yourself afterwards (e.g. iTerm2's right-click tab menu) stays put.
+# A coprocess has no tty of its own, but iTerm2 gives it ITERM_SESSION_ID. The
+# in-session hooks record that id -> tty (see lib.sh resolve_tty), so we look up
+# exactly which tab launched us. Run from Claude Code's `!` prefix it resolves
+# the tty directly; an explicit tty path may also be passed as $1.
 
 # shellcheck source=lib.sh
 source ~/.claude/notify/lib.sh
 
-# Use an explicitly-passed tty if it's a real device; otherwise try resolve_tty
-# (works from the `!` prefix, where we're a child of Claude Code). A coprocess
-# has neither — fall through to resetting every tinted tab.
 TTY=${1:-}
 if [ -z "$TTY" ] || [ ! -e "$TTY" ]; then
   TTY=$(resolve_tty)
+fi
+# Coprocess path: no tty of our own — look it up by ITERM_SESSION_ID.
+if [ -z "$TTY" ] || [ ! -e "$TTY" ]; then
+  [ -n "${ITERM_SESSION_ID:-}" ] &&
+    TTY=$(head -1 "/tmp/claude-iterm-${ITERM_SESSION_ID#*:}" 2>/dev/null)
 fi
 
 if [ -n "$TTY" ] && [ -e "$TTY" ]; then
   kill_pulser_by_tty "$TTY"
   clear_tab_color "$TTY"
-else
-  dismiss_all
 fi
 exit 0

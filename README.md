@@ -66,10 +66,11 @@ The classifier call uses `claude -p --model haiku --no-session-persistence` and 
 
 ## Stop the pulse yourself
 
-Seen the orange, but not ready to answer yet? `dismiss.sh` stops the pulse and
-resets the tab color to the default. Because the pulser is then gone, nothing
-overwrites the tab color anymore — so a color you set yourself afterwards (e.g.
-iTerm2's right-click **tab color** menu) stays put.
+Seen the orange, but not ready to answer yet? `dismiss.sh` clears the current
+tab's color and stops its pulse — leaving every other tab alone, whatever color
+they're showing. Once the pulser is dead nothing overwrites the tab color, so a
+color you set yourself afterwards (e.g. iTerm2's right-click **tab color** menu)
+stays put.
 
 Bind it to an iTerm2 key:
 
@@ -82,12 +83,13 @@ Bind it to an iTerm2 key:
    bash ~/.claude/notify/dismiss.sh
    ```
 
-That key resets every tab the tool has colored — clearing any tint and stopping
-any pulse, whatever the tab's current color — even mid-`AskUserQuestion` or
-during a permission prompt.
+It runs as a coprocess with no terminal of its own, but iTerm2 hands it
+`ITERM_SESSION_ID`. The in-session hooks record that id against the tab's tty
+(see `resolve_tty` in `lib.sh`), so `dismiss.sh` resolves exactly which tab
+launched it — and touches only that one, even mid-`AskUserQuestion` or during a
+permission prompt.
 
-You can also run it from Claude Code's `!` prefix, where it targets just the
-current tab:
+You can also run it from Claude Code's `!` prefix:
 
 ```
 ! ~/.claude/notify/dismiss.sh

@@ -67,7 +67,7 @@ green "✓ scripts removed from $CLAUDE_DIR"
 
 # Clean up temp files.
 rm -f /tmp/claude-notify-input-needed.log /tmp/claude-notification-payload.json
-rm -f /tmp/claude-stop-notified-* /tmp/claude-tint-*
+rm -f /tmp/claude-stop-notified-* /tmp/claude-iterm-* /tmp/claude-dismiss.log
 
 echo ""
 green "Uninstall complete."

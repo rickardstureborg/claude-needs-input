@@ -3,10 +3,6 @@
 # OSC 6 ; 1 ; bg ; <channel> ; brightness ; <0-255> BEL  — sets one RGB channel.
 # OSC 6 ; 1 ; bg ; * ; default BEL                       — clears tab color.
 
-# A marker file (/tmp/claude-tint-<tty basename>) tracks every tab we've tinted.
-# It lets dismiss.sh reset a solid-colored tab that has no pulser — which an
-# iTerm2 coprocess could not otherwise discover (it has no tty of its own).
-
 set_tab_rgb() {
   local tty=$1 r=$2 g=$3 b=$4
   # 2>/dev/null must precede >"$tty": redirections apply left-to-right, so if the
@@ -15,22 +11,31 @@ set_tab_rgb() {
   printf '\033]6;1;bg;red;brightness;%d\007'   "$r" 2>/dev/null > "$tty"
   printf '\033]6;1;bg;green;brightness;%d\007' "$g" 2>/dev/null > "$tty"
   printf '\033]6;1;bg;blue;brightness;%d\007'  "$b" 2>/dev/null > "$tty"
-  [ -n "$tty" ] && printf '%s\n' "$tty" 2>/dev/null > "/tmp/claude-tint-${tty##*/}"
 }
 
 clear_tab_color() {
   local tty=$1
   printf '\033]6;1;bg;*;default\007' 2>/dev/null > "$tty"
-  [ -n "$tty" ] && rm -f "/tmp/claude-tint-${tty##*/}"
+}
+
+# Record ITERM_SESSION_ID -> tty. dismiss.sh runs as an iTerm2 coprocess: it
+# inherits ITERM_SESSION_ID but has no tty of its own, so this map — written by
+# the in-session hooks, which do have the tty — is how it finds the right tab.
+# Keyed by the stable UUID part of ITERM_SESSION_ID (the wNtMpK prefix changes
+# if the tab is moved). Only real ttys are recorded — never /dev/?? etc.
+_record_iterm_tty() {
+  local tty=$1 uuid=${ITERM_SESSION_ID#*:}
+  [ -n "$uuid" ] && [ -n "$tty" ] && [ -e "$tty" ] || return 0
+  printf '%s\n' "$tty" 2>/dev/null > "/tmp/claude-iterm-$uuid"
 }
 
 # Hooks are children of Claude Code, which has the iTerm2 tab as its tty.
 resolve_tty() {
   local t
   { t=$(tty < /dev/tty); } 2>/dev/null
-  if [ -n "$t" ] && [ -e "$t" ]; then echo "$t"; return; fi
+  if [ -n "$t" ] && [ -e "$t" ]; then _record_iterm_tty "$t"; echo "$t"; return; fi
   t=$(ps -o tty= -p "$PPID" 2>/dev/null | tr -d ' ')
-  [ -n "$t" ] && echo "/dev/$t"
+  if [ -n "$t" ]; then _record_iterm_tty "/dev/$t"; echo "/dev/$t"; fi
 }
 
 read_session_id() {
@@ -55,7 +60,7 @@ kill_pulser() {
 }
 
 # Stop the pulser bound to a given tty, regardless of session id — used by
-# dismiss.sh when it does know a specific tty (run from the `!` prefix).
+# dismiss.sh to stop the pulse on exactly the tab the user invoked it from.
 kill_pulser_by_tty() {
   local want=${1:-} pf pid tty
   [ -n "$want" ] || return 0
@@ -66,28 +71,6 @@ kill_pulser_by_tty() {
     if [ "$tty" = "$want" ]; then
       [ -n "$pid" ] && kill "$pid" 2>/dev/null
       rm -f "$pf"
-    fi
-  done
-}
-
-# Stop every pulser and reset every tab the tool has tinted — pulsing or solid.
-# dismiss.sh uses this when it has no specific tty: an iTerm2 coprocess can't
-# tell which tab triggered it, so it resets them all.
-dismiss_all() {
-  local pf pid m tty
-  for pf in /tmp/claude-pulse-*.pid; do
-    [ -f "$pf" ] || continue
-    pid=$(head -1 "$pf" 2>/dev/null)
-    [ -n "$pid" ] && kill "$pid" 2>/dev/null
-    rm -f "$pf"
-  done
-  for m in /tmp/claude-tint-*; do
-    [ -f "$m" ] || continue
-    tty=$(head -1 "$m" 2>/dev/null)
-    if [ -n "$tty" ] && [ -e "$tty" ]; then
-      clear_tab_color "$tty"
-    else
-      rm -f "$m"
     fi
   done
 }
