@@ -47,9 +47,9 @@ if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
     exit 0
 fi
 
-# Walk the transcript. The Stop hook can fire before Claude Code has flushed
-# the final assistant entry to disk, leaving asst[] empty (parse_header empty).
-# Retry with backoff to give the writer time to catch up.
+# Walk the transcript. The Stop hook can fire before Claude Code has flushed the
+# assistant's closing message to disk; walk_transcript then returns empty
+# (parse_header empty) and the caller retries with backoff for the writer.
 walk_transcript() {
     python3 - "$TRANSCRIPT" 2>>"$LOG" <<'PY'
 import json, sys
@@ -61,11 +61,36 @@ with open(sys.argv[1]) as f:
         try: entries.append(json.loads(line))
         except: pass
 
+# Claude Code appends bookkeeping entries (last-prompt, ai-title, pr-link,
+# file-history-snapshot, attachment, summary, ...) to the transcript AFTER the
+# assistant's closing message — so the literal last line is normally metadata,
+# not conversation. Judge completeness, and walk the turn, from conversation
+# entries (type user/assistant) only.
+msgs = [e for e in entries if e.get("type") in ("user", "assistant")]
+
+# The Stop hook can fire before Claude Code has flushed the assistant's closing
+# message. A turn-final assistant entry has text and no trailing tool call
+# (AskUserQuestion is itself a turn-ender). If the last conversation entry isn't
+# yet such an entry, the closing text isn't on disk — exit empty to signal a
+# retry, rather than grading a stale earlier line (e.g. a text -> tool -> text
+# turn where only the pre-tool text has been written).
+def _is_final(e):
+    if not e or e.get("type") != "assistant":
+        return False
+    content = e.get("message", {}).get("content", [])
+    has_text = any(c.get("type") == "text" for c in content)
+    tool_uses = [c for c in content if c.get("type") == "tool_use"]
+    has_auq = any(c.get("name") == "AskUserQuestion" for c in tool_uses)
+    return has_auq or (has_text and not tool_uses)
+
+if msgs and not _is_final(msgs[-1]):
+    sys.exit(0)
+
 # Walk back through this turn — i.e. since the last *real* user prompt.
 # Tool-result entries are also type=user but their content is a list of tool_result
 # blocks, not a plain string; they're mid-turn artifacts and shouldn't end the walk.
 asst = []
-for e in reversed(entries):
+for e in reversed(msgs):
     if e.get("type") == "user":
         c = e.get("message", {}).get("content")
         if isinstance(c, str):
@@ -97,18 +122,19 @@ PY
 }
 
 # Retry the walk a few times to defeat the transcript-flush race. Empty parse_header
-# means asst was empty at read time — usually because the final assistant entry
-# wasn't on disk yet. Most calls succeed on attempt 1 (no added latency).
+# means walk_transcript saw an incomplete transcript — no assistant entry yet, or
+# the closing text not flushed past the last tool call. Most calls succeed on
+# attempt 1 (no added latency).
 RESULT=""
 PARSE_HEADER=""
-for attempt in 1 2 3; do
+for attempt in 1 2 3 4 5; do
     RESULT=$(walk_transcript)
     PARSE_HEADER=$(echo "$RESULT" | head -1)
     if [ -n "$PARSE_HEADER" ]; then
         [ "$attempt" -gt 1 ] && trace "walk succeeded on attempt $attempt"
         break
     fi
-    trace "attempt=$attempt empty parse_header, sleeping 0.3s"
+    trace "attempt=$attempt incomplete transcript, sleeping 0.3s"
     sleep 0.3
 done
 
@@ -132,8 +158,9 @@ fi
 # might be handing a decision back to the user. A literal "?" or any of these
 # input-soliciting phrases (case-insensitive, anywhere in the message) sends it
 # to the classifier; anything else is trivially CLOSING.
-TRIGGERS=$(cat <<'EOF'
-?
+# A plain multi-line string — NOT a here-doc: this hook runs under /bin/bash,
+# which on macOS is 3.2, and bash 3.2 can't parse a here-doc nested in $(...).
+TRIGGERS="?
 up to you
 your call
 you decide
@@ -163,9 +190,7 @@ decision
 choose
 choice
 prefer
-proceed
-EOF
-)
+proceed"
 if grep -iqF -- "$TRIGGERS" <<< "$TEXT"; then
     trace "trigger matched -> calling LLM"
 else
