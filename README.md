@@ -22,7 +22,7 @@ Then restart Claude Code (or open `/hooks`) so the new hooks load.
 | 🟩 **solid green** | Claude finished a turn cleanly |
 | ⬜ **default (no tint)** | You just submitted a new prompt; Claude is working |
 
-The tricky part — and the reason this isn't just regex — is distinguishing a *real* blocking question (`"Which file should I edit?"`) from a *closing pleasantry* (`"Anything else I can help with?"`). A small Haiku call classifies the turn-ending message; turns that contain no `?` skip the call entirely (fast path).
+The tricky part — and the reason this isn't just regex — is distinguishing a *real* blocking question (`"Which file should I edit?"`) from a *closing pleasantry* (`"Anything else I can help with?"`). A small Haiku call classifies the turn-ending message; turns with no `?` and no input-soliciting wording skip the call entirely (fast path).
 
 ## Requirements
 
@@ -36,7 +36,7 @@ No `ANTHROPIC_API_KEY` needed — the classifier piggybacks on your existing Cla
 
 ## How it works
 
-A few Claude Code hooks, all installed under `~/.claude/`:
+The installed files, all under `~/.claude/`:
 
 ```
 ~/.claude/
@@ -54,11 +54,11 @@ End-of-turn classification flow:
 
 ```
 Stop event
-  ├─ no transcript / AskUserQuestion was used / empty text  →  GREEN
-  ├─ message contains no "?"                                →  GREEN  (fast path, ~0s)
-  └─ message contains "?"                                   →  call Haiku
-                                                                 ├─ BLOCKING → orange pulse
-                                                                 └─ CLOSING  → GREEN
+  ├─ no transcript / AskUserQuestion used / empty text   →  GREEN
+  ├─ no "?" and no input-soliciting phrasing             →  GREEN  (fast path, ~0s)
+  └─ has "?" or input-soliciting phrasing                →  call Haiku
+                                                              ├─ BLOCKING → orange pulse
+                                                              └─ CLOSING  → GREEN
 ```
 
 The classifier call uses `claude -p --model haiku --no-session-persistence` and inherits a `CLAUDE_CLASSIFIER_RUNNING=1` env var to short-circuit its own Stop hook (no recursion, no API key).
@@ -111,7 +111,7 @@ sleep 0.32                                         # frame delay
 set_tab_rgb "$TTY" 40 200 80   # solid green (R,G,B)
 ```
 
-**Skip the LLM, fast-path everything.** Edit `~/.claude/notify-input-needed.sh` and replace the `claude -p` block with `LLM_VERDICT=CLOSING`. You'll lose blocker-detection on `?`-ending turns but every classification becomes instant.
+**Skip the LLM, fast-path everything.** Edit `~/.claude/notify-input-needed.sh` and replace the `claude -p` block with `LLM_VERDICT=CLOSING`. You'll lose end-of-turn blocker detection, but every classification becomes instant.
 
 **Faster classification.** If you have an `ANTHROPIC_API_KEY` and want the classifier to run in ~1s instead of ~4s, change the `claude -p` invocation in `~/.claude/notify-input-needed.sh` to add `--bare`:
 ```bash
