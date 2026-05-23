@@ -233,8 +233,14 @@ $TEXT
 
 Reply with exactly one word: BLOCKING or CLOSING. No explanation, no punctuation."
 
+# Force a known session-id so we can delete the stub `.jsonl` Claude Code still
+# writes despite --no-session-persistence (otherwise these clog /resume).
+CLASSIFIER_SID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+
 # perl alarm replaces `timeout` — coreutils isn't on macOS by default.
-LLM_VERDICT=$(CLAUDE_CLASSIFIER_RUNNING=1 perl -e 'alarm shift @ARGV; exec @ARGV' 20 claude -p "$PROMPT" --model haiku --no-session-persistence 2>>"$LOG" | tr -d '[:space:]' | head -c 20)
+LLM_VERDICT=$(CLAUDE_CLASSIFIER_RUNNING=1 perl -e 'alarm shift @ARGV; exec @ARGV' 20 claude -p "$PROMPT" --model haiku --no-session-persistence --session-id "$CLASSIFIER_SID" 2>>"$LOG" | tr -d '[:space:]' | head -c 20)
+
+rm -f "$HOME"/.claude/projects/*/"$CLASSIFIER_SID".jsonl
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') | session=$SESSION_ID | verdict=$LLM_VERDICT" >> "$LOG"
 
